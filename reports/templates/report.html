@@ -1,0 +1,1146 @@
+{# ═══════════════════════════════════════════════════════════════════════════
+   Jinja2 macros — MUST be defined before first use
+   ═══════════════════════════════════════════════════════════════════════════ #}
+
+{# ── Macro: link failure/skip table ───────────────────────────────────────── #}
+{% macro _render_link_table(rows, filter_id) %}
+<div class="filterbar">
+  <input type="text" placeholder="🔍 Filter by URL, element, reason …"
+         oninput="filterTable(this, '{{ filter_id }}')" />
+  <button class="fbtn f-active" onclick="exportSectionCSV('{{ filter_id }}')">⬇ Export CSV</button>
+</div>
+<div class="results-wrap" id="{{ filter_id }}">
+  <table class="results">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Element</th>
+        <th>Target URL</th>
+        <th>Found On</th>
+        <th>HTTP</th>
+        <th>Result</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="data-row row-{{ row.verdict | lower }}"
+          data-status="{% if row.verdict == 'PASS' %}pass{% elif row.verdict == 'FAIL' %}fail{% else %}skip{% endif %}"
+          data-type="{{ 'external' if row.is_external else 'internal' }}"
+          data-text="{{ (row.element ~ ' ' ~ row.target_url ~ ' ' ~ row.reason ~ ' ' ~ (row.found_on_pages | join(' ') if row.found_on_pages is defined else row.page_url)) | lower }}">
+
+        <!-- Type + scope pills -->
+        <td>
+          <span class="pill pill-link">🔗 Link</span><br/>
+          {% if row.is_external %}
+          <span class="pill pill-ext">ext</span>
+          {% else %}
+          <span class="pill pill-int">int</span>
+          {% endif %}
+          {% if row.browser_checked %}
+          <br/><span class="pill pill-browser">🌐 browser</span>
+          {% endif %}
+        </td>
+
+        <!-- Element description -->
+        <td class="element-cell">{{ row.element }}</td>
+
+        <!-- Target URL (clickable) -->
+        <td class="url-cell">
+          <a href="{{ row.target_url }}" target="_blank" rel="noopener noreferrer">{{ row.target_url }}</a>
+          {% if row.final_url and row.final_url != row.target_url %}
+          <br/><small style="color:#64748b">↪ {{ row.final_url }}</small>
+          {% endif %}
+        </td>
+
+        <!-- Found on pages -->
+        <td class="pages-cell">
+          {% if row.found_on_pages is defined and row.found_on_pages %}
+            {% if row.found_on_pages | length == 1 %}
+              <a href="{{ row.found_on_pages[0] }}" target="_blank" rel="noopener noreferrer"
+                 style="color:#93c5fd;font-size:0.78rem;word-break:break-all;">
+                {{ row.found_on_pages[0] }}
+              </a>
+            {% else %}
+              <span class="pages-toggle" onclick="togglePages(this)">
+                📄 {{ row.found_on_pages | length }} pages ▾
+              </span>
+              <div class="pages-list">
+                {% for pg in row.found_on_pages %}
+                <a href="{{ pg }}" target="_blank" rel="noopener noreferrer">{{ pg }}</a><br/>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% else %}
+            <a href="{{ row.page_url }}" target="_blank" rel="noopener noreferrer"
+               style="color:#93c5fd;font-size:0.78rem;word-break:break-all;">
+              {{ row.page_url }}
+            </a>
+          {% endif %}
+        </td>
+
+        <!-- HTTP status -->
+        <td><code style="font-size:0.8rem">{{ row.status_code }}</code></td>
+
+        <!-- Verdict pill -->
+        <td>
+          {% if row.verdict == 'PASS' %}
+          <span class="pill pill-pass">✔ PASS</span>
+          {% elif row.verdict == 'FAIL' %}
+          <span class="pill pill-fail">✘ FAIL</span>
+          {% else %}
+          <span class="pill pill-skip">⚠ SKIP</span>
+          {% endif %}
+        </td>
+
+        <!-- Reason -->
+        <td class="reason-cell">{{ row.reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{# ── Macro: image failure table ────────────────────────────────────────────── #}
+{% macro _render_image_table(rows, filter_id) %}
+<div class="filterbar">
+  <input type="text" placeholder="🔍 Filter by URL, alt text, reason …"
+         oninput="filterTable(this, '{{ filter_id }}')" />
+  <button class="fbtn f-active" onclick="exportSectionCSV('{{ filter_id }}')">⬇ Export CSV</button>
+</div>
+<div class="results-wrap" id="{{ filter_id }}">
+  <table class="results">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Element (Alt Text)</th>
+        <th>Target URL (src)</th>
+        <th>Page URL</th>
+        <th>HTTP</th>
+        <th>Result</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="data-row row-{{ row.verdict | lower }}"
+          data-status="{% if row.verdict == 'PASS' %}pass{% elif row.verdict == 'FAIL' %}fail{% else %}skip{% endif %}"
+          data-type="{{ 'external' if row.is_external else 'internal' }}"
+          data-text="{{ (row.element ~ ' ' ~ row.target_url ~ ' ' ~ row.reason ~ ' ' ~ row.page_url) | lower }}">
+
+        <!-- Type + scope pills -->
+        <td>
+          <span class="pill pill-image">🖼 Image</span><br/>
+          {% if row.is_external %}
+          <span class="pill pill-ext">ext</span>
+          {% else %}
+          <span class="pill pill-int">int</span>
+          {% endif %}
+        </td>
+
+        <!-- Element -->
+        <td class="element-cell">{{ row.element }}</td>
+
+        <!-- Target URL -->
+        <td class="url-cell">
+          <a href="{{ row.target_url }}" target="_blank" rel="noopener noreferrer">{{ row.target_url }}</a>
+          {% if row.final_url and row.final_url != row.target_url %}
+          <br/><small style="color:#64748b">↪ {{ row.final_url }}</small>
+          {% endif %}
+        </td>
+
+        <!-- Page URL -->
+        <td class="url-cell">
+          <a href="{{ row.page_url }}" target="_blank" rel="noopener noreferrer">{{ row.page_url }}</a>
+        </td>
+
+        <!-- HTTP status -->
+        <td><code style="font-size:0.8rem">{{ row.status_code }}</code></td>
+
+        <!-- Verdict pill -->
+        <td>
+          {% if row.verdict == 'PASS' %}
+          <span class="pill pill-pass">✔ PASS</span>
+          {% elif row.verdict == 'FAIL' %}
+          <span class="pill pill-fail">✘ FAIL</span>
+          {% else %}
+          <span class="pill pill-skip">⚠ SKIP</span>
+          {% endif %}
+        </td>
+
+        <!-- Reason -->
+        <td class="reason-cell">{{ row.reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Website Health Report</title>
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    /* ── Layout ────────────────────────────────────────────────── */
+    .wrapper { max-width: 1480px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    h1       { font-size: 1.8rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.2rem; }
+    .subtitle { font-size: 0.82rem; color: #64748b; margin-bottom: 2rem; }
+
+    h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    h3 {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* ── Sticky nav ────────────────────────────────────────────── */
+    .topnav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #0d1017;
+      border-bottom: 1px solid #1e2433;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 1.5rem;
+      overflow-x: auto;
+    }
+    .topnav a {
+      display: inline-block;
+      padding: 0.7rem 1.1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color .15s, border-color .15s;
+    }
+    .topnav a:hover        { color: #e2e8f0; }
+    .topnav a.active       { color: #818cf8; border-bottom-color: #818cf8; }
+    .topnav .nav-badge {
+      background: #7f1d1d;
+      color: #fca5a5;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.1rem 0.45rem;
+      margin-left: 0.3rem;
+      vertical-align: middle;
+    }
+    .topnav .nav-badge.ok  { background: #052e16; color: #86efac; }
+    .topnav .nav-badge.sk  { background: #431407; color: #fcd34d; }
+
+    /* ── Section wrapper ───────────────────────────────────────── */
+    .section { margin-bottom: 3rem; scroll-margin-top: 50px; }
+
+    /* ── Summary dashboard ─────────────────────────────────────── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 10px;
+      padding: 1rem 0.85rem;
+      text-align: center;
+    }
+    .card .label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; line-height: 1.3; }
+    .card .value { font-size: 1.7rem; font-weight: 700; margin-top: 0.25rem; }
+    .card.ok   .value { color: #4ade80; }
+    .card.fail .value { color: #f87171; }
+    .card.skip .value { color: #fbbf24; }
+    .card.info .value { color: #60a5fa; }
+    .card.pct  .value { color: #a78bfa; }
+    .card.teal .value { color: #2dd4bf; }
+
+    /* ── Breakdown table (summary rows) ────────────────────────── */
+    .breakdown {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      margin-bottom: 2rem;
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .breakdown thead th {
+      background: #151b2a;
+      color: #64748b;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      padding: 0.55rem 1rem;
+      text-align: left;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .breakdown tbody td {
+      padding: 0.6rem 1rem;
+      border-top: 1px solid #252d3f;
+      vertical-align: middle;
+    }
+    .breakdown tbody tr:hover { background: #252d3f; }
+    .breakdown .category { font-weight: 700; color: #e2e8f0; }
+    .breakdown .n-pass  { color: #4ade80; font-weight: 600; }
+    .breakdown .n-fail  { color: #f87171; font-weight: 600; }
+    .breakdown .n-skip  { color: #fbbf24; font-weight: 600; }
+    .breakdown .n-info  { color: #93c5fd; }
+
+    /* ── Interactive status filter buttons ────────────────────── */
+    .filter-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+      align-items: center;
+    }
+    .filter-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: #1e2433;
+      border: 1.5px solid #2d3748;
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .filter-btn:hover { background: #252d3f; color: #e2e8f0; border-color: #3f4f6a; }
+    .fb-count {
+      background: #252d3f;
+      border-radius: 999px;
+      padding: 0.06rem 0.5rem;
+      font-size: 0.74rem;
+      font-weight: 700;
+      line-height: 1.4;
+      transition: background .15s, color .15s;
+    }
+    /* Active — All (indigo) */
+    .filter-btn.fa-active           { border-color: #4f46e5; color: #818cf8; background: #1a1a3a; }
+    .filter-btn.fa-active .fb-count { background: #312e81; color: #c7d2fe; }
+    /* Active — Passed (green) */
+    .filter-btn.fa-active.fa-pass           { border-color: #166534; color: #4ade80; background: #071910; }
+    .filter-btn.fa-active.fa-pass .fb-count { background: #052e16; color: #86efac; }
+    /* Active — Failed (red) */
+    .filter-btn.fa-active.fa-fail           { border-color: #991b1b; color: #f87171; background: #1a0808; }
+    .filter-btn.fa-active.fa-fail .fb-count { background: #450a0a; color: #fca5a5; }
+    /* Active — Skipped (amber) */
+    .filter-btn.fa-active.fa-skip           { border-color: #92400e; color: #fbbf24; background: #1a1200; }
+    .filter-btn.fa-active.fa-skip .fb-count { background: #431407; color: #fcd34d; }
+
+    /* ── Filter bar ────────────────────────────────────────────── */
+    .filterbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .filterbar input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      max-width: 380px;
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 7px;
+      padding: 0.45rem 0.8rem;
+      color: #e2e8f0;
+      font-size: 0.82rem;
+      outline: none;
+    }
+    .filterbar input[type="text"]:focus { border-color: #6366f1; }
+    .fbtn {
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 7px;
+      padding: 0.45rem 0.9rem;
+      color: #94a3b8;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background .12s;
+      white-space: nowrap;
+    }
+    .fbtn:hover         { background: #252d3f; color: #e2e8f0; }
+    .fbtn.f-active      { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+    .fbtn.f-active-fail { background: #7f1d1d; border-color: #991b1b; color: #fca5a5; }
+    .export-btn { margin-left: auto; }
+
+    /* ── Results table ─────────────────────────────────────────── */
+    .results-wrap {
+      overflow-x: auto;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+    }
+    .results-wrap.empty {
+      padding: 2rem;
+      text-align: center;
+      color: #4ade80;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-color: #166534;
+      border-style: dashed;
+    }
+    table.results {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    table.results thead th {
+      background: #151b2a;
+      color: #64748b;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 0.55rem 0.85rem;
+      text-align: left;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    table.results tbody tr {
+      border-top: 1px solid #1e2433;
+      transition: background .1s;
+    }
+    table.results tbody tr.row-fail     { background: #1a0f0f; }
+    table.results tbody tr.row-fail:hover { background: #231313; }
+    table.results tbody tr.row-skipped  { background: #1a1400; }
+    table.results tbody tr.row-skipped:hover { background: #221c00; }
+    table.results tbody tr.row-pass:hover { background: #1a2235; }
+    table.results td {
+      padding: 0.6rem 0.85rem;
+      vertical-align: top;
+    }
+    .url-cell     { word-break: break-all; max-width: 280px; }
+    .url-cell a   { color: #93c5fd; text-decoration: none; }
+    .url-cell a:hover { text-decoration: underline; }
+    .element-cell { max-width: 200px; word-break: break-word; color: #cbd5e1; }
+    .reason-cell  { max-width: 260px; color: #94a3b8; font-size: 0.78rem; word-break: break-word; }
+    .pages-cell   { max-width: 200px; }
+
+    /* ── Pills ─────────────────────────────────────────────────── */
+    .pill {
+      display: inline-block;
+      border-radius: 4px;
+      padding: 0.18rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .pill-pass    { background: #052e16; color: #4ade80; }
+    .pill-fail    { background: #450a0a; color: #f87171; }
+    .pill-skip    { background: #431407; color: #fbbf24; }
+    .pill-link    { background: #1e3a5f; color: #93c5fd; }
+    .pill-image   { background: #2d1b69; color: #c4b5fd; }
+    .pill-int     { background: #1c2a1e; color: #86efac; font-size: 0.65rem; }
+    .pill-ext     { background: #1c1f2e; color: #64748b; font-size: 0.65rem; }
+    .pill-browser { background: #134e4a; color: #2dd4bf; font-size: 0.65rem; }
+
+    /* ── Pages collapsible ─────────────────────────────────────── */
+    .pages-toggle {
+      cursor: pointer;
+      font-size: 0.72rem;
+      color: #60a5fa;
+      text-decoration: underline dotted;
+      white-space: nowrap;
+      display: inline-block;
+      user-select: none;
+    }
+    .pages-toggle:hover { color: #93c5fd; }
+    .pages-list {
+      display: none;
+      margin-top: 0.4rem;
+      padding: 0.4rem 0.6rem;
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 5px;
+      font-size: 0.72rem;
+      color: #64748b;
+      line-height: 1.8;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .pages-list a { color: #93c5fd; text-decoration: none; }
+    .pages-list a:hover { text-decoration: underline; }
+
+    /* ── Section divider ───────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid #1e2433;
+      margin: 2rem 0;
+    }
+
+    /* ── Legend ────────────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      align-items: center;
+    }
+    .ldot {
+      display: inline-block;
+      width: 9px; height: 9px;
+      border-radius: 2px;
+      margin-right: 0.3rem;
+      vertical-align: middle;
+    }
+    .ldot-pass { background: #166534; }
+    .ldot-fail { background: #7f1d1d; }
+    .ldot-skip { background: #78350f; }
+
+    /* ── No-results ────────────────────────────────────────────── */
+    .no-rows {
+      padding: 2rem;
+      text-align: center;
+      color: #4ade80;
+      font-size: 0.88rem;
+    }
+
+    /* ── Footer ────────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      color: #475569;
+      font-size: 0.75rem;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #1e2433;
+    }
+
+    /* ── Broken Items Summary table ─────────────────────────── */
+    .bsummary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      margin-top: 0.5rem;
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .bsummary-table thead th {
+      background: #151b2a;
+      color: #64748b;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      padding: 0.55rem 1rem;
+      text-align: left;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .bsummary-table tbody td {
+      padding: 0.6rem 1rem;
+      border-top: 1px solid #252d3f;
+      vertical-align: top;
+      color: #cbd5e1;
+    }
+    .bsummary-table tbody tr         { background: #1a0f0f; }
+    .bsummary-table tbody tr:hover   { background: #231313; }
+    .bsummary-table .bs-url          { word-break: break-all; font-size: 0.78rem; }
+    .bsummary-table .bs-url a        { color: #93c5fd; text-decoration: none; }
+    .bsummary-table .bs-url a:hover  { text-decoration: underline; }
+    .bsummary-table .bs-code {
+      font-family: monospace;
+      font-size: 0.75rem;
+      background: #1a0808;
+      color: #fca5a5;
+      border: 1px solid #450a0a;
+      border-radius: 4px;
+      padding: 0.1rem 0.4rem;
+      white-space: nowrap;
+    }
+    .bsummary-table .bs-reason {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+    .bsummary-table .bs-elem {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .bs-empty {
+      text-align: center;
+      padding: 2rem;
+      color: #4ade80;
+      font-size: 0.9rem;
+      background: #071910;
+      border: 1px solid #166534;
+      border-radius: 10px;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sticky navigation ──────────────────────────────────────────────────── -->
+<nav class="topnav" id="topnav">
+  <a href="#overview"  onclick="activateNav(this)">📊 Overview</a>
+  <a href="#broken-summary" onclick="activateNav(this)">
+    🔎 Broken Items
+    {% if summary.total_failed > 0 %}
+    <span class="nav-badge">{{ summary.total_failed }} broken</span>
+    {% else %}
+    <span class="nav-badge ok">✔ None</span>
+    {% endif %}
+  </a>
+  <a href="#int-links" onclick="activateNav(this)">
+    🔗 Internal Links
+    {% if summary.internal_links_failed > 0 %}
+    <span class="nav-badge">{{ summary.internal_links_failed }} failed</span>
+    {% else %}
+    <span class="nav-badge ok">✔ OK</span>
+    {% endif %}
+  </a>
+  <a href="#ext-links" onclick="activateNav(this)">
+    🌐 External Links
+    {% if summary.external_links_failed > 0 %}
+    <span class="nav-badge">{{ summary.external_links_failed }} failed</span>
+    {% elif summary.external_links_skipped > 0 %}
+    <span class="nav-badge sk">{{ summary.external_links_skipped }} skipped</span>
+    {% else %}
+    <span class="nav-badge ok">✔ OK</span>
+    {% endif %}
+  </a>
+  <a href="#int-images" onclick="activateNav(this)">
+    🖼 Internal Images
+    {% if summary.internal_images_failed > 0 %}
+    <span class="nav-badge">{{ summary.internal_images_failed }} failed</span>
+    {% else %}
+    <span class="nav-badge ok">✔ OK</span>
+    {% endif %}
+  </a>
+  <a href="#ext-images" onclick="activateNav(this)">
+    🌍 External Images
+    {% if summary.external_images_failed > 0 %}
+    <span class="nav-badge">{{ summary.external_images_failed }} failed</span>
+    {% elif summary.external_images_skipped > 0 %}
+    <span class="nav-badge sk">{{ summary.external_images_skipped }} skipped</span>
+    {% else %}
+    <span class="nav-badge ok">✔ OK</span>
+    {% endif %}
+  </a>
+</nav>
+
+<div class="wrapper">
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <h1>🩺 Website Health Report</h1>
+  <p class="subtitle">Generated {{ summary.generated_at }}</p>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1 — Overview Dashboard                                        -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="overview">
+    <h2>📊 Overview Dashboard</h2>
+
+    <!-- Top-level KPI cards -->
+    <div class="summary-grid">
+      <div class="card info">
+        <div class="label">Pages Scanned</div>
+        <div class="value">{{ summary.pages_scanned }}</div>
+      </div>
+      <div class="card info">
+        <div class="label">Total Links Checked</div>
+        <div class="value">{{ summary.total_links }}</div>
+      </div>
+      <div class="card info">
+        <div class="label">Total Images Checked</div>
+        <div class="value">{{ summary.total_images }}</div>
+      </div>
+      <div class="card ok">
+        <div class="label">Total Passed</div>
+        <div class="value">{{ summary.total_passed }}</div>
+      </div>
+      <div class="card {% if summary.total_failed > 0 %}fail{% else %}ok{% endif %}">
+        <div class="label">Total Failed</div>
+        <div class="value">{{ summary.total_failed }}</div>
+      </div>
+      <div class="card {% if summary.total_skipped > 0 %}skip{% else %}info{% endif %}">
+        <div class="label">Total Skipped</div>
+        <div class="value">{{ summary.total_skipped }}</div>
+      </div>
+      <div class="card pct">
+        <div class="label">Pass Rate*</div>
+        <div class="value">{{ summary.pass_pct }}%</div>
+      </div>
+      <div class="card teal">
+        <div class="label">Browser Upgraded</div>
+        <div class="value">{{ summary.browser_upgraded }}</div>
+      </div>
+    </div>
+    <p style="font-size:0.72rem;color:#475569;margin-top:-1.25rem;margin-bottom:2rem;">
+      * Pass rate = Passed ÷ (Passed + Failed). SKIPPED items are excluded — they represent
+      external bot-detection noise, not real defects.
+    </p>
+
+    <!-- Detailed breakdown table -->
+    <h3>Breakdown by Category</h3>
+    <table class="breakdown">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Total</th>
+          <th>Internal</th>
+          <th>External</th>
+          <th>✅ Passed</th>
+          <th>❌ Failed</th>
+          <th>⚠️ Skipped</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="category">🔗 Links</td>
+          <td class="n-info">{{ summary.total_links }}</td>
+          <td class="n-info">{{ summary.internal_links_count }}</td>
+          <td class="n-info">{{ summary.external_links_count }}</td>
+          <td class="n-pass">{{ summary.links_passed }}</td>
+          <td class="n-fail">{{ summary.links_failed }}</td>
+          <td class="n-skip">{{ summary.links_skipped }}</td>
+        </tr>
+        <tr>
+          <td class="category">🖼 Images</td>
+          <td class="n-info">{{ summary.total_images }}</td>
+          <td class="n-info">{{ summary.internal_images_count }}</td>
+          <td class="n-info">{{ summary.external_images_count }}</td>
+          <td class="n-pass">{{ summary.images_passed }}</td>
+          <td class="n-fail">{{ summary.images_failed }}</td>
+          <td class="n-skip">{{ summary.images_skipped }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Colour legend -->
+    <div class="legend">
+      <span><span class="ldot ldot-fail"></span>FAIL — definitively broken (internal 4xx / 5xx / render failure)</span>
+      <span><span class="ldot ldot-skip"></span>SKIP — external bot-detection, WAF noise, tracking endpoints</span>
+      <span><span class="ldot ldot-pass"></span>PASS — reachable and renders correctly</span>
+    </div>
+  </div><!-- /#overview -->
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION: Broken Items Summary                                          -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="broken-summary">
+    <h2>🔎 Broken Items Summary
+      {% if summary.total_failed > 0 %}
+      <span class="pill pill-fail">{{ summary.total_failed }} broken</span>
+      {% else %}
+      <span class="pill pill-pass">✔ None</span>
+      {% endif %}
+    </h2>
+    <p style="font-size:0.8rem;color:#64748b;margin-top:-0.5rem;margin-bottom:1.25rem;">
+      All definitively broken links and images from this crawl, in one place.
+      SKIPPED items (external bot-detection, WAF noise, tracking endpoints) are excluded — they are not real failures.
+    </p>
+
+    {# Filter rows to FAIL verdict only — no new template variable needed #}
+    {% set failed_rows = rows | selectattr("verdict", "equalto", "FAIL") | list %}
+
+    {% if failed_rows %}
+    <table class="bsummary-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Error</th>
+          <th>Target URL</th>
+          <th>Page URL</th>
+          <th>Element</th>
+          <th>Category</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in failed_rows %}
+        <tr>
+
+          {# ── Type pill ──────────────────────────────────────────────── #}
+          <td>
+            {% if item.type == 'Link' %}
+            <span class="pill pill-link">🔗 Link</span>
+            {% else %}
+            <span class="pill pill-image">🖼 Image</span>
+            {% endif %}
+          </td>
+
+          {# ── Error: HTTP code + reason ───────────────────────────────── #}
+          <td>
+            <code class="bs-code">{{ item.status_code }}</code>
+            {% if item.reason %}
+            <span class="bs-reason">{{ item.reason }}</span>
+            {% endif %}
+          </td>
+
+          {# ── Target URL ─────────────────────────────────────────────── #}
+          <td class="bs-url">
+            <a href="{{ item.target_url }}" target="_blank" rel="noopener noreferrer">
+              {{ item.target_url }}
+            </a>
+          </td>
+
+          {# ── Page URL — first page; show overflow count for links ────── #}
+          <td class="bs-url">
+            {% if item.found_on_pages is defined and item.found_on_pages %}
+              <a href="{{ item.found_on_pages[0] }}" target="_blank" rel="noopener noreferrer">
+                {{ item.found_on_pages[0] }}
+              </a>
+              {% if item.found_on_pages | length > 1 %}
+              <span class="bs-reason">+ {{ item.found_on_pages | length - 1 }} more page(s)</span>
+              {% endif %}
+            {% else %}
+              <a href="{{ item.page_url }}" target="_blank" rel="noopener noreferrer">
+                {{ item.page_url }}
+              </a>
+            {% endif %}
+          </td>
+
+          {# ── Element (anchor text or alt text) ──────────────────────── #}
+          <td class="bs-elem" title="{{ item.element }}">{{ item.element }}</td>
+
+          {# ── Category pill ──────────────────────────────────────────── #}
+          <td>
+            {% if item.is_external %}
+            <span class="pill pill-ext">External</span>
+            {% else %}
+            <span class="pill pill-int">Internal</span>
+            {% endif %}
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% else %}
+    <div class="bs-empty">✅ No broken items found — all links and images are healthy!</div>
+    {% endif %}
+
+  </div><!-- /#broken-summary -->
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2 — Internal Links                                            -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="int-links">
+    <h2>🔗 Internal Links
+      <span class="pill pill-int">Internal</span>
+    </h2>
+
+    <!-- Filter buttons -->
+    <div class="filter-strip" data-table="int-links-filter">
+      <button class="filter-btn"                    data-filter="all"  onclick="filterSection(this)">All <span class="fb-count">{{ summary.internal_links_count }}</span></button>
+      <button class="filter-btn"                    data-filter="pass" onclick="filterSection(this)">✅ Passed <span class="fb-count">{{ summary.internal_links_passed }}</span></button>
+      <button class="filter-btn fa-active fa-fail"  data-filter="fail" onclick="filterSection(this)">❌ Failed <span class="fb-count">{{ summary.internal_links_failed }}</span></button>
+      <button class="filter-btn"                    data-filter="skip" onclick="filterSection(this)">⚠️ Skipped <span class="fb-count">{{ summary.internal_links_skipped }}</span></button>
+    </div>
+
+    {% if sections.internal_links.all %}
+    {{ _render_link_table(sections.internal_links.all, 'int-links-filter') }}
+    {% else %}
+    <div class="results-wrap empty">✅ No internal links found.</div>
+    {% endif %}
+  </div><!-- /#int-links -->
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3 — External Links                                            -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="ext-links">
+    <h2>🌐 External Links
+      <span class="pill pill-ext">External</span>
+    </h2>
+
+    <!-- Filter buttons -->
+    <div class="filter-strip" data-table="ext-links-filter">
+      <button class="filter-btn"                    data-filter="all"  onclick="filterSection(this)">All <span class="fb-count">{{ summary.external_links_count }}</span></button>
+      <button class="filter-btn"                    data-filter="pass" onclick="filterSection(this)">✅ Passed <span class="fb-count">{{ summary.external_links_passed }}</span></button>
+      <button class="filter-btn fa-active fa-fail"  data-filter="fail" onclick="filterSection(this)">❌ Failed <span class="fb-count">{{ summary.external_links_failed }}</span></button>
+      <button class="filter-btn"                    data-filter="skip" onclick="filterSection(this)">⚠️ Skipped <span class="fb-count">{{ summary.external_links_skipped }}</span></button>
+    </div>
+
+    {% if sections.external_links.all %}
+    {{ _render_link_table(sections.external_links.all, 'ext-links-filter') }}
+    {% else %}
+    <div class="results-wrap empty">✅ No external links found.</div>
+    {% endif %}
+  </div><!-- /#ext-links -->
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4 — Internal Images                                           -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="int-images">
+    <h2>🖼 Internal Images
+      <span class="pill pill-int">Internal</span>
+    </h2>
+
+    <!-- Filter buttons -->
+    <div class="filter-strip" data-table="int-images-filter">
+      <button class="filter-btn"                    data-filter="all"  onclick="filterSection(this)">All <span class="fb-count">{{ summary.internal_images_count }}</span></button>
+      <button class="filter-btn"                    data-filter="pass" onclick="filterSection(this)">✅ Passed <span class="fb-count">{{ summary.internal_images_passed }}</span></button>
+      <button class="filter-btn fa-active fa-fail"  data-filter="fail" onclick="filterSection(this)">❌ Failed <span class="fb-count">{{ summary.internal_images_failed }}</span></button>
+      <button class="filter-btn"                    data-filter="skip" onclick="filterSection(this)">⚠️ Skipped <span class="fb-count">{{ summary.internal_images_skipped }}</span></button>
+    </div>
+
+    {% if sections.internal_images.all %}
+    {{ _render_image_table(sections.internal_images.all, 'int-images-filter') }}
+    {% else %}
+    <div class="results-wrap empty">✅ No internal images found.</div>
+    {% endif %}
+  </div><!-- /#int-images -->
+
+  <hr class="divider"/>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5 — External Images                                           -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="ext-images">
+    <h2>🌍 External Images
+      <span class="pill pill-ext">External</span>
+    </h2>
+
+    <!-- Filter buttons -->
+    <div class="filter-strip" data-table="ext-images-filter">
+      <button class="filter-btn"                    data-filter="all"  onclick="filterSection(this)">All <span class="fb-count">{{ summary.external_images_count }}</span></button>
+      <button class="filter-btn"                    data-filter="pass" onclick="filterSection(this)">✅ Passed <span class="fb-count">{{ summary.external_images_passed }}</span></button>
+      <button class="filter-btn fa-active fa-fail"  data-filter="fail" onclick="filterSection(this)">❌ Failed <span class="fb-count">{{ summary.external_images_failed }}</span></button>
+      <button class="filter-btn"                    data-filter="skip" onclick="filterSection(this)">⚠️ Skipped <span class="fb-count">{{ summary.external_images_skipped }}</span></button>
+    </div>
+
+    {% if sections.external_images.all %}
+    {{ _render_image_table(sections.external_images.all, 'ext-images-filter') }}
+    {% else %}
+    <div class="results-wrap empty">✅ No external images found.</div>
+    {% endif %}
+  </div><!-- /#ext-images -->
+
+  <!-- ── Footer ───────────────────────────────────────────────────────────── -->
+  <div class="footer">
+    WebsiteHealthCheck &nbsp;·&nbsp; Playwright + aiohttp &nbsp;·&nbsp;
+    {{ summary.total_checked }} checks performed &nbsp;·&nbsp;
+    {{ summary.total_failed }} real failure(s) &nbsp;·&nbsp;
+    {{ summary.total_skipped }} skipped (noise filtered)
+  </div>
+
+</div><!-- /.wrapper -->
+
+<script>
+  // ── Raw data (for CSV export) ──────────────────────────────────────────
+  const allRows = {{ rows | tojson }};
+
+  // ── Nav: highlight on click ────────────────────────────────────────────
+  function activateNav(el) {
+    document.querySelectorAll('.topnav a').forEach(a => a.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Auto-highlight nav item as user scrolls (IntersectionObserver)
+  const _sections = document.querySelectorAll('.section[id]');
+  const _navLinks  = document.querySelectorAll('.topnav a[href]');
+  const _observer  = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = '#' + e.target.id;
+        _navLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === id);
+        });
+      }
+    });
+  }, { threshold: 0.25 });
+  _sections.forEach(s => _observer.observe(s));
+
+  // ══════════════════════════════════════════════════════════════════════
+  // INTERACTIVE FILTER BUTTONS
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * filterSection(btn)
+   * Called by the clickable Total / Passed / Failed / Skipped buttons.
+   * - Updates the active button style for this section's strip.
+   * - ANDs the status filter with the current text-search query.
+   *
+   * @param {HTMLButtonElement} btn  The clicked filter button.
+   */
+  function filterSection(btn) {
+    const strip  = btn.closest('.filter-strip');
+    const tblId  = strip.dataset.table;          // e.g. 'int-links-filter'
+    const filter = btn.dataset.filter;            // 'all' | 'pass' | 'fail' | 'skip'
+
+    // ── Update active-button visual state ─────────────────────────────
+    strip.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.remove('fa-active', 'fa-pass', 'fa-fail', 'fa-skip');
+    });
+    btn.classList.add('fa-active');
+    if (filter !== 'all') btn.classList.add('fa-' + filter);
+
+    // ── Re-apply combined status + text filter ─────────────────────────
+    _applyTableFilter(tblId, filter, _getSearchQuery(strip));
+  }
+
+  /**
+   * filterTable(input, tableId)
+   * Called by the per-section text <input> oninput event.
+   * Respects the currently-active status-filter button.
+   *
+   * @param {HTMLInputElement} input    The search input element.
+   * @param {string}           tableId  The id of the results-wrap div.
+   */
+  function filterTable(input, tableId) {
+    const strip  = document.querySelector(`.filter-strip[data-table="${tableId}"]`);
+    const active = strip ? strip.querySelector('.filter-btn.fa-active') : null;
+    const filter = active ? active.dataset.filter : 'all';
+    _applyTableFilter(tableId, filter, input.value.toLowerCase());
+  }
+
+  /**
+   * _applyTableFilter(tableId, statusFilter, textQuery)
+   * Core filter engine: shows rows where BOTH conditions match.
+   *   statusFilter — 'all' | 'pass' | 'fail' | 'skip'   (matches data-status on <tr>)
+   *   textQuery    — free-text query  (matched against data-text on <tr>)
+   */
+  function _applyTableFilter(tableId, statusFilter, textQuery) {
+    const tbl = document.getElementById(tableId);
+    if (!tbl) return;
+
+    let visibleCount = 0;
+    tbl.querySelectorAll('tr.data-row').forEach(row => {
+      const statusOk = statusFilter === 'all' || row.dataset.status === statusFilter;
+      const textOk   = !textQuery   || row.dataset.text.includes(textQuery);
+      const show     = statusOk && textOk;
+      row.style.display = show ? '' : 'none';
+      if (show) visibleCount++;
+    });
+
+    // Show / hide the "no matching rows" empty-state row
+    const tbody  = tbl.querySelector('tbody');
+    let emptyRow = tbl.querySelector('tr.empty-state');
+    if (visibleCount === 0) {
+      if (!emptyRow) {
+        emptyRow = document.createElement('tr');
+        emptyRow.className = 'empty-state';
+        const cols = tbl.querySelectorAll('thead th').length;
+        emptyRow.innerHTML =
+          `<td colspan="${cols}" style="text-align:center;padding:1.5rem;color:#475569;font-size:0.85rem;">` +
+          `No ${statusFilter === 'all' ? '' : statusFilter + ' '}items match your filter.</td>`;
+        tbody.appendChild(emptyRow);
+      }
+      emptyRow.style.display = '';
+    } else if (emptyRow) {
+      emptyRow.style.display = 'none';
+    }
+  }
+
+  /** Helper: get the current text query from this section's search input. */
+  function _getSearchQuery(strip) {
+    const section = strip.closest('.section');
+    if (!section) return '';
+    const input = section.querySelector('.filterbar input[type="text"]');
+    return input ? input.value.toLowerCase() : '';
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // OTHER INTERACTIONS
+  // ══════════════════════════════════════════════════════════════════════
+
+  /** Expand / collapse the "Found on N pages" list inside a table cell. */
+  function togglePages(el) {
+    const list = el.nextElementSibling;
+    const open = list.style.display === 'block';
+    list.style.display = open ? 'none' : 'block';
+    el.textContent = el.textContent.replace(open ? '▴' : '▾', open ? '▾' : '▴');
+  }
+
+  /** Export only the currently-visible rows in a section table as CSV. */
+  function exportSectionCSV(tableId) {
+    const tbl = document.getElementById(tableId);
+    if (!tbl) return;
+    const hdrs  = Array.from(tbl.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    const lines = [hdrs.map(h => '"' + h.replace(/"/g, '""') + '"').join(',')];
+
+    tbl.querySelectorAll('tr.data-row').forEach(row => {
+      if (row.style.display === 'none') return;
+      const cells = Array.from(row.querySelectorAll('td')).map(td =>
+        '"' + td.innerText.replace(/\n/g, ' ').trim().replace(/"/g, '""') + '"'
+      );
+      lines.push(cells.join(','));
+    });
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = tableId + '.csv';
+    a.click();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // DEFAULT FILTER — show only FAILED rows on page load
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * On load, activate the "fail" filter for every section simultaneously.
+   * This keeps the report focused on actionable failures and avoids
+   * overwhelming reviewers with hundreds of PASS / SKIPPED rows.
+   *
+   * Clicking any filter button afterwards behaves exactly as before;
+   * no other logic is changed.
+   */
+  window.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.filter-strip').forEach(strip => {
+      const tblId = strip.dataset.table;
+      if (!tblId) return;
+      // Apply the filter to the table rows (no text query on load)
+      _applyTableFilter(tblId, 'fail', '');
+    });
+  });
+</script>
+</body>
+</html>

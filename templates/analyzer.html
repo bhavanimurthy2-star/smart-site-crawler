@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Broken Links &amp; Images Analyzer — Milestone DX QA Utilities{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-row">
+    <div>
+      <h1 class="page-title">Broken Links &amp; Images Analyzer</h1>
+      <p class="page-subtitle">Crawl a website and identify all broken links and images</p>
+    </div>
+    <div class="status-indicator" id="status-indicator">
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-label" id="status-label">Ready</span>
+    </div>
+  </div>
+</div>
+
+<!-- Controls -->
+<section class="section">
+  <div class="control-row">
+    <input
+      type="url"
+      id="url-input"
+      class="url-input"
+      placeholder="https://example.com"
+      autocomplete="off"
+      spellcheck="false"
+    >
+    <div class="control-actions">
+      <button class="btn btn-primary" id="btn-start" onclick="startAnalysis()">
+        &#9654; Start Analysis
+      </button>
+      <button class="btn btn-danger" id="btn-stop" onclick="stopAnalysis()" disabled>
+        &#9632; Stop
+      </button>
+      <button class="btn btn-secondary" id="btn-view-report" onclick="viewReport()" disabled>
+        &#128196; View Report
+      </button>
+    </div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progress-bar"></div>
+    </div>
+    <span class="progress-label" id="progress-label">0%</span>
+  </div>
+</section>
+
+<!-- Results tabs -->
+<section class="section">
+  <div class="tabs" id="result-tabs">
+    <button class="tab active" data-tab="links" onclick="switchTab('links', this)">
+      Broken Links
+      <span class="tab-count" id="count-links">0</span>
+    </button>
+    <button class="tab" data-tab="images" onclick="switchTab('images', this)">
+      Broken Images
+      <span class="tab-count" id="count-images">0</span>
+    </button>
+    <button class="tab" data-tab="summary" onclick="switchTab('summary', this)">
+      Summary
+    </button>
+  </div>
+
+  <!-- Tab: Broken Links -->
+  <div class="tab-panel active" id="panel-links">
+    <div class="table-wrap">
+      <table class="results-table" id="table-links">
+        <thead>
+          <tr>
+            <th style="width:40%">URL</th>
+            <th style="width:12%">Status</th>
+            <th style="width:12%">Category</th>
+            <th>Found On</th>
+            <th>Anchor Text</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-links">
+          <tr class="empty-row">
+            <td colspan="5">No results yet. Run an analysis to see broken links.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab: Broken Images -->
+  <div class="tab-panel" id="panel-images">
+    <div class="table-wrap">
+      <table class="results-table" id="table-images">
+        <thead>
+          <tr>
+            <th style="width:40%">Image URL</th>
+            <th style="width:12%">Status</th>
+            <th style="width:12%">Category</th>
+            <th>Found On</th>
+            <th>Alt Text</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-images">
+          <tr class="empty-row">
+            <td colspan="5">No results yet. Run an analysis to see broken images.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab: Summary -->
+  <div class="tab-panel" id="panel-summary">
+    <div class="summary-grid" id="summary-grid">
+      <div class="summary-card">
+        <span class="summary-value" id="s-pages">—</span>
+        <span class="summary-key">Pages Scanned</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-value" id="s-checked">—</span>
+        <span class="summary-key">Total Checks (Links + Images)</span>
+      </div>
+      <div class="summary-card fail">
+        <span class="summary-value" id="s-broken-links">—</span>
+        <span class="summary-key">Broken Links</span>
+      </div>
+      <div class="summary-card fail">
+        <span class="summary-value" id="s-broken-images">—</span>
+        <span class="summary-key">Broken Images</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-value" id="s-internal">—</span>
+        <span class="summary-key">Internal</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-value" id="s-external">—</span>
+        <span class="summary-key">External</span>
+      </div>
+    </div>
+    <div class="empty-state" id="summary-empty">
+      Run an analysis to see the summary.
+    </div>
+  </div>
+</section>
+
+<!-- Log panel -->
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">Log</h2>
+    <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
+  </div>
+  <div class="log-panel" id="log-panel">
+    <span class="log-line muted">— Waiting for input —</span>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Page-specific mock data for the demo simulation
+  const MOCK_BROKEN_LINKS = [
+    { url: "https://example.com/old-page",       status: 404, category: "External", foundOn: "/about",   anchor: "Learn more" },
+    { url: "https://example.com/missing-offer",  status: 404, category: "External", foundOn: "/offers",  anchor: "View offer" },
+    { url: "/internal/broken-path",              status: 404, category: "Internal", foundOn: "/contact", anchor: "Contact us" },
+    { url: "https://partner.example.net/deals",  status: 410, category: "External", foundOn: "/deals",   anchor: "Partner deals" },
+  ];
+  const MOCK_BROKEN_IMAGES = [
+    { url: "/images/hero-banner.jpg",            status: 404, category: "Internal", foundOn: "/",        anchor: "Hero banner" },
+    { url: "https://cdn.example.com/logo.png",   status: 404, category: "External", foundOn: "/about",   anchor: "Logo" },
+  ];
+</script>
+{% endblock %}

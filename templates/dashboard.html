@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Milestone DX QA Utilities{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">QA Utilities</h1>
+  <p class="page-subtitle">Select a utility to run</p>
+</div>
+
+<section class="section">
+  <div class="utility-grid">
+
+    <a href="{{ url_for('analyzer') }}" class="utility-card primary">
+      <div class="utility-card-icon">&#128279;</div>
+      <div class="utility-card-body">
+        <h3 class="utility-card-title">Broken Links &amp; Images Check</h3>
+        <p class="utility-card-desc">Crawl a site and detect all broken links and missing images.</p>
+      </div>
+      <span class="utility-card-badge active">Active</span>
+    </a>
+
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">Execution Status</h2>
+    <button class="btn btn-ghost btn-sm" id="btn-clear-log" onclick="clearLog()">Clear</button>
+  </div>
+  <div class="log-panel" id="log-panel">
+    <span class="log-line muted">— No active processes —</span>
+  </div>
+  <div class="section-footer">
+    <button class="btn btn-secondary" onclick="openReportsFolder()">
+      &#128193; View Reports Folder
+    </button>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,28 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+
+# Generated reports (runtime output — not source code)
+reports/output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright browser binaries (installed at build time on Render)
+playwright-browsers/
