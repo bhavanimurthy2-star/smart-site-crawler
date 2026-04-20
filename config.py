@@ -1,10 +1,24 @@
 """
 Global configuration for the Website Health Check framework.
 Modify these values to control crawl depth, timeouts, and concurrency.
+
+Cloud deployment note (Render free tier — 512 MB RAM, 0.1 CPU):
+  Concurrency values are intentionally low to avoid OOM crashes.
+  Raise them via environment variables when running on paid/local hardware:
+    CRAWL_CONCURRENCY, HTTP_CONCURRENCY, BROWSER_FALLBACK_CONCURRENCY, MAX_PAGES
 """
 
+import os
 from dataclasses import dataclass, field
 from typing import List
+
+
+def _int_env(name: str, default: int) -> int:
+    """Read an integer from an environment variable, falling back to default."""
+    try:
+        return int(os.environ[name])
+    except (KeyError, ValueError):
+        return default
 
 
 @dataclass
@@ -13,11 +27,15 @@ class Config:
     base_url: str = "https://example.com"
     max_depth: int = 3
     stay_on_domain: bool = True
-    max_pages: int = 0                 # 0 = no limit; set >0 for a hard cap
+    # Hard page cap — prevents runaway crawls on large sites in the cloud.
+    # Override via MAX_PAGES env var (0 = no limit).
+    max_pages: int = _int_env("MAX_PAGES", 100)
 
     # ── Smart crawler ────────────────────────────────────────────────────────
     sitemap_enabled: bool = True       # try /sitemap.xml before BFS
-    crawl_concurrency: int = 15        # parallel Playwright pages during crawl
+    # Reduced from 15 → 3 for cloud (each Playwright page uses ~80–120 MB RAM).
+    # Override via CRAWL_CONCURRENCY env var.
+    crawl_concurrency: int = _int_env("CRAWL_CONCURRENCY", 3)
     # How long a worker waits on an empty queue before exiting.
     # Must exceed the worst-case page-processing time (crawl_first_attempt_timeout
     # + 30 s retry = up to 45 s) so that BFS workers do not exit during the
@@ -29,7 +47,9 @@ class Config:
     # ── HTTP / network ───────────────────────────────────────────────────────
     request_timeout: int = 20          # seconds per HTTP request
     max_retries: int = 2
-    concurrency: int = 50              # max parallel aiohttp requests (primary throughput lever)
+    # Reduced from 50 → 10 for cloud to avoid exhausting Render's network limits.
+    # Override via HTTP_CONCURRENCY env var.
+    concurrency: int = _int_env("HTTP_CONCURRENCY", 10)
     verify_ssl: bool = False           # set False to skip SSL validation
 
     # ── Playwright ───────────────────────────────────────────────────────────
@@ -59,8 +79,8 @@ class Config:
     # deadlink checkers and real users actually see.
     # Set False to skip the browser pass (faster, but more false positives).
     browser_fallback_on_fail: bool = True
-    # Max concurrent browser pages during the fallback phase.
-    browser_fallback_concurrency: int = 5    # max concurrent browser pages during fallback phase
+    # Reduced from 5 → 2 for cloud. Override via BROWSER_FALLBACK_CONCURRENCY env var.
+    browser_fallback_concurrency: int = _int_env("BROWSER_FALLBACK_CONCURRENCY", 2)
 
     # ── Ignored schemes ──────────────────────────────────────────────────────
     ignored_schemes: List[str] = field(
